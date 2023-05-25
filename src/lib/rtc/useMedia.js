@@ -1,15 +1,14 @@
-import { ref } from 'vue';
+import { reactive, ref } from 'vue';
 
 const NO_INPUT = { deviceId: null, label: 'No' };
 const DISPLAY_INPUT = { deviceId: 'display', label: 'Display' };
 
-const localMediaStreams = ref([]);
-const localMediaError = ref(null);
+const localMediaStreams = reactive({});
 
 const videoInputs = ref([DISPLAY_INPUT, NO_INPUT]);
 const audioInputs = ref([NO_INPUT]);
 
-const setLocalVideoStream = async (videoInputId = null, audioInputId = null) => {
+const setLocalMediaStream = async (label, videoInputId = null, audioInputId = null) => {
   const useDisplay = videoInputId === 'display';
 
   const mediaMethod = useDisplay ? 'getDisplayMedia' : 'getUserMedia';
@@ -27,22 +26,24 @@ const setLocalVideoStream = async (videoInputId = null, audioInputId = null) => 
       audio: audioInputs.value.find((input) => input.deviceId === audioInputId).label,
     };
 
-    localMediaStreams.value.push({
+    localMediaStreams[label] = {
       stream,
       description,
-    });
-  } catch (e) {
-    localMediaError.value = e;
+    };
+  } catch (err) {
+    return err;
   }
 };
 
-const stopLocalVideoStream = (id) => {
-  localMediaStreams.value = localMediaStreams.value.filter(({ stream }) => {
-    if (id && stream.id !== id) return true;
+const stopLocalMediaStream = (id) => {
+  for (const label in localMediaStreams) {
+    const stream = localMediaStreams[label].stream;
+
+    if (id && stream.id !== id) continue;
 
     stream.getTracks().forEach((track) => track.stop());
-    return false;
-  });
+    delete localMediaStreams[label];
+  }
 };
 
 const getMediaInputs = async () => {
@@ -62,8 +63,8 @@ const getMediaInputs = async () => {
 
     videoInputs.value = [...videoInputs.value, DISPLAY_INPUT, NO_INPUT];
     audioInputs.value = [...audioInputs.value, NO_INPUT];
-  } catch (e) {
-    localMediaError.value = e;
+  } catch (err) {
+    return err;
   }
 };
 
@@ -76,11 +77,10 @@ const setupVideoElement = (el, stream) => {
 const useMediaStream = () => {
   return {
     localMediaStreams,
-    localMediaError,
     videoInputs,
     audioInputs,
-    setLocalVideoStream,
-    stopLocalVideoStream,
+    setLocalMediaStream,
+    stopLocalMediaStream,
     getMediaInputs,
     setupVideoElement,
   };
